@@ -80,6 +80,7 @@
     <project>FOL</project>
     <project>FSM</project>
     <project>JSON</project>
+    <project>MTNP</project>
     <project>Tuples</project>
     <project>XML</project>
   </dependencies>
