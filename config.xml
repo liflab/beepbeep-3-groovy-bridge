@@ -66,6 +66,7 @@
       </files>
       <bundle>false</bundle>
     </dependency>
+    <project>BeepBeep 3</project>
     <dependency>
       <name>BeepBeep Palettes</name>
       <classname>ca.uqac.lif.cep.json.ParseJson</classname>
@@ -74,5 +75,12 @@
       </files>
       <bundle>false</bundle>
     </dependency>
+    <project>Apache</project>
+    <project>CEP</project>
+    <project>FOL</project>
+    <project>FSM</project>
+    <project>JSON</project>
+    <project>Tuples</project>
+    <project>XML</project>
   </dependencies>
 </build>
