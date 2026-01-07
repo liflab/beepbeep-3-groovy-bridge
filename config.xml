@@ -25,11 +25,13 @@
   <!-- The project's name -->
   <name>BeepBeep Groovy Bridge</name>
 
-  <version>0.11.3</version>
+  <version>3.13</version>
 
   <jar>
     <filename>beepbeep-groovy</filename>
   </jar>
+  
+  <fatjar>true</fatjar>
 
   <srcdir>src</srcdir>
   <libdir>lib</libdir>
@@ -44,7 +46,7 @@
   <!-- <mainclass>my.package.MainClass</mainclass> -->
   
   <!-- The target JDK for which we are compiling -->
-  <targetjdk>8</targetjdk>
+  <targetjdk>11</targetjdk>
   
   <test>
     <!-- The filename pattern to recognize test files -->
@@ -62,7 +64,7 @@
       <name>BeepBeep Core</name>
       <classname>ca.uqac.lif.cep.Processor</classname>
       <files>
-        <jar>https://github.com/liflab/beepbeep-3/releases/download/v0.11.3/beepbeep-3-0.11.3.jar</jar>
+        <jar>https://github.com/liflab/beepbeep-3/releases/download/v3.13/beepbeep-3.13.jar</jar>
       </files>
       <bundle>false</bundle>
     </dependency>
@@ -71,7 +73,7 @@
       <name>BeepBeep Palettes</name>
       <classname>ca.uqac.lif.cep.json.ParseJson</classname>
       <files>
-        <jar>https://github.com/liflab/beepbeep-3-palettes/releases/download/v0.8.1/beepbeep-palettes-0.8.1.jar</jar>
+        <jar>https://github.com/liflab/beepbeep-3-palettes/releases/download/v3.13/beepbeep-palettes-3.13.jar</jar>
       </files>
       <bundle>false</bundle>
     </dependency>
