@@ -10,7 +10,7 @@
   <!-- Project coordinates -->
   <groupId>io.github.liflab</groupId>  
   <artifactId>beepbeep-groovy</artifactId>  
-  <version>3.13</version>
+  <version>3.14</version>
   <packaging>jar</packaging>
   
   <!-- Project description -->
@@ -48,12 +48,12 @@
     <dependency>
       <groupId>io.github.liflab</groupId>
       <artifactId>beepbeep</artifactId>
-      <version>3.13</version>
+      <version>3.14</version>
     </dependency>
     <dependency>
       <groupId>io.github.liflab</groupId>
       <artifactId>beepbeep-palettes</artifactId>
-      <version>3.13</version>
+      <version>3.14</version>
     </dependency> 
   </dependencies>
 </project>

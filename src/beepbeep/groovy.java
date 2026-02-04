@@ -1,15 +1,43 @@
+/*
+    Syntactical shortcuts for BeepBeep in Groovy
+    Copyright (C) 2023-2026 Laboratoire d'informatique formelle
+
+    This program is free software: you can redistribute it and/or modify
+    it under the terms of the GNU Lesser General Public License as published
+    by the Free Software Foundation, either version 3 of the License, or
+    (at your option) any later version.
+
+    This program is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU Lesser General Public License for more details.
+
+    You should have received a copy of the GNU Lesser General Public License
+    along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ */
 package beepbeep;
 
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
 import java.io.OutputStream;
 import java.io.PrintStream;
+import java.util.Queue;
 
+import ca.uqac.lif.cep.CallAfterConnect;
+import ca.uqac.lif.cep.CallAfterConnect.StartAfterConnect;
+import ca.uqac.lif.cep.Connector;
+import ca.uqac.lif.cep.GroupProcessor;
 import ca.uqac.lif.cep.Processor;
+import ca.uqac.lif.cep.ProcessorException;
+import ca.uqac.lif.cep.functions.BinaryFunction;
 import ca.uqac.lif.cep.functions.Constant;
 import ca.uqac.lif.cep.functions.Function;
 import ca.uqac.lif.cep.functions.FunctionTree;
 import ca.uqac.lif.cep.io.SpliceSource.SpliceByteSource;
 import ca.uqac.lif.cep.io.SpliceSource.SpliceLineSource;
 import ca.uqac.lif.cep.io.SpliceSource.SpliceTokenSource;
+import ca.uqac.lif.cep.io.WriteOutputStream;
+import ca.uqac.lif.cep.tmf.Pump;
 import ca.uqac.lif.cep.tuples.SpliceTupleSource;
 import ca.uqac.lif.cep.util.NthElement;
 
@@ -71,6 +99,16 @@ public class groovy
 		{
 			super(in_arity, out_arity);
 		}
+
+		public Processor i(Processor p)
+		{
+			return in(p);
+		}
+
+		public CallAfterConnect o(Processor p)
+		{
+			return out(p);
+		}
 	}
 
 	public static final int BOTTOM = ca.uqac.lif.cep.Connector.BOTTOM;
@@ -124,7 +162,7 @@ public class groovy
 	{
 		return new ca.uqac.lif.cep.functions.Cumulate(f);
 	}
-	
+
 	/**
 	 * Creates a new instance of the {@link ca.uqac.lif.cep.functions.FunctionTree}
 	 * function.
@@ -181,13 +219,18 @@ public class groovy
 	/* ca.uqac.lif.cep.io */
 
 	/**
+	 * An instance of the {@link ca.uqac.lif.cep.io.ToBase64} function.
+	 */
+	public static ca.uqac.lif.cep.io.ToBase64 ToBase64 = ca.uqac.lif.cep.io.ToBase64.instance;
+
+	/**
 	 * Creates an new instance of the {@link ca.uqac.lif.cep.io.Print}
 	 * processor.
 	 * @return The processor
 	 */
-	public static ca.uqac.lif.cep.io.Print Print()
+	public static StartAfterConnect Print()
 	{
-		return new ca.uqac.lif.cep.io.Print();
+		return Print(System.out);
 	}
 
 	/**
@@ -196,9 +239,9 @@ public class groovy
 	 * @param ps The print stream to write the events to
 	 * @return The processor
 	 */
-	public static ca.uqac.lif.cep.io.Print Print(PrintStream ps)
+	public static StartAfterConnect Print(PrintStream ps)
 	{
-		return new ca.uqac.lif.cep.io.Print(ps);
+		return new StartAfterConnect(new PullPrintln(ps));
 	}
 
 	/**
@@ -207,17 +250,62 @@ public class groovy
 	 * @param os The output stream to write to
 	 * @return The processor
 	 */
-	public static ca.uqac.lif.cep.io.WriteOutputStream Write(OutputStream os)
+	public static StartAfterConnect Write(OutputStream os)
 	{
-		return new ca.uqac.lif.cep.io.WriteOutputStream(os);
+		return new StartAfterConnect(new PullWrite(os));
 	}
+
+	/**
+	 * Creates an new instance of the {@link ca.uqac.lif.cep.io.WriteOutputStream}
+	 * processor, and redirects its output to the Zeppelin console if it is
+	 * running. Otherwise, the processor falls back to {@code System.out}.
+	 * @return The processor
+	 */
+	public static StartAfterConnect ZPrint()
+	{
+		return Write(ca.uqac.lif.cep.zeppelin.ZepBridge.out());
+	}
+
+	/**
+	 * Creates an new instance of the {@link ca.uqac.lif.cep.io.WriteOutputStream}
+	 * processor that writes images in the image format of the a
+	 * <href="https://sw.kovidgoyal.net/kitty/graphics-protocol/">Kitty</a> terminal.
+	 * @param os
+	 * @return
+	 */
+	public static StartAfterConnect KPrint(OutputStream os)
+	{
+		return new StartAfterConnect(new PullWriteSuffix(os, "\u001b_Gf=100;".getBytes(), "\u001b\\".getBytes()));
+	}
+
+	/**
+	 * Creates an new instance of the {@link ca.uqac.lif.cep.io.WriteOutputStream}
+	 * processor that writes HTML content.
+	 * @param os The output stream to write to
+	 * @return The processor
+	 */
+	public static StartAfterConnect ZHtml()
+	{
+		OutputStream os = ca.uqac.lif.cep.zeppelin.ZepBridge.out();
+		try
+		{
+			os.write("%html ".getBytes());
+			os.flush();
+		}
+		catch (IOException e)
+		{
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+		return new StartAfterConnect(new PullWrite(os));
+	}	
 
 	/**
 	 * Creates an new instance of the {@link ca.uqac.lif.cep.io.WriteOutputStream}
 	 * processor directing it to the standard output.
 	 * @return The processor
 	 */
-	public static ca.uqac.lif.cep.io.WriteOutputStream Stdout()
+	public static StartAfterConnect Stdout()
 	{
 		return Write(System.out);
 	}
@@ -227,7 +315,7 @@ public class groovy
 	 * processor directing it to the standard error.
 	 * @return The processor
 	 */
-	public static ca.uqac.lif.cep.io.WriteOutputStream Stderr()
+	public static StartAfterConnect Stderr()
 	{
 		return Write(System.err);
 	}
@@ -250,7 +338,7 @@ public class groovy
 	 */
 	public static
 
- ca.uqac.lif.cep.io.Print.Println Println(PrintStream ps)
+	ca.uqac.lif.cep.io.Print.Println Println(PrintStream ps)
 	{
 		return new ca.uqac.lif.cep.io.Print.Println(ps);
 	}
@@ -290,6 +378,11 @@ public class groovy
 		return new ca.uqac.lif.cep.tmf.CountDecimate(interval);
 	}
 
+	public static ca.uqac.lif.cep.tmf.FilterOn FilterOn(Object f)
+	{
+		return new ca.uqac.lif.cep.tmf.FilterOn(liftFunction(f));
+	}
+
 	/**
 	 * Creates an new instance of the {@link ca.uqac.lif.cep.tmf.Fork}
 	 * processor.
@@ -319,6 +412,27 @@ public class groovy
 	public static ca.uqac.lif.cep.tmf.KeepLast KeepLast()
 	{
 		return new ca.uqac.lif.cep.tmf.KeepLast();
+	}
+
+	/**
+	 * Creates an new instance of the {@link ca.uqac.lif.cep.tmf.QueueSink}
+	 * processor.
+	 * @param arity The input arity of the sink
+	 * @return The processor
+	 */
+	public static ca.uqac.lif.cep.tmf.QueueSink QueueSink(int arity)
+	{
+		return new ca.uqac.lif.cep.tmf.QueueSink(arity);
+	}
+
+	/**
+	 * Creates an new instance of the {@link ca.uqac.lif.cep.tmf.QueueSink}
+	 * processor with input arity 1.
+	 * @return The processor
+	 */
+	public static ca.uqac.lif.cep.tmf.QueueSink QueueSink()
+	{
+		return new ca.uqac.lif.cep.tmf.QueueSink(1);
 	}
 
 	/**
@@ -441,17 +555,17 @@ public class groovy
 	{
 		return new ca.uqac.lif.cep.functions.FunctionTree(Equals(), liftFunction(f1), liftFunction(f2));
 	}
-	
+
 	public static Function Size()
 	{
 		return ca.uqac.lif.cep.util.Size.instance;
 	}
-	
+
 	public static Function Size(Object o)
 	{
 		return new FunctionTree(ca.uqac.lif.cep.util.Size.instance, liftFunction(o));
 	}
-	
+
 	/**
 	 * A class extending {@link ca.uqac.lif.cep.util.Bags} to provide direct
 	 * access to its static fields and methods.
@@ -462,13 +576,13 @@ public class groovy
 		{
 			super();
 		}
-		
+
 		public static Function ApplyToAll(Object f, Object x)
 		{
 			return new FunctionTree(new Bags.ApplyToAll(liftFunction(f)), liftFunction(x));
 		}
 	}
-	
+
 	/**
 	 * A class extending {@link ca.uqac.lif.cep.util.Lists} to provide direct
 	 * access to its static fields and methods.
@@ -479,7 +593,7 @@ public class groovy
 		{
 			super();
 		}
-		
+
 		/**
 		 * Produces an instance of the {@link ca.uqac.lif.cep.util.Lists.Pack}
 		 * processor.
@@ -534,7 +648,7 @@ public class groovy
 		{
 			super();
 		}
-		
+
 		/**
 		 * Creates an instance of the {@link Maps.Keys} function.
 		 * @param o The condition to filter the map
@@ -544,7 +658,7 @@ public class groovy
 		{
 			return new ca.uqac.lif.cep.util.Maps.FilterMap(liftFunction(o));
 		}
-		
+
 		/**
 		 * Creates an instance of the {@link Maps.Keys} function.
 		 * @return The function
@@ -553,7 +667,7 @@ public class groovy
 		{
 			return ca.uqac.lif.cep.util.Maps.Keys.instance;
 		}
-		
+
 		/**
 		 * Creates an instance of the {@link Maps.Values} function.
 		 * @return The function
@@ -593,7 +707,26 @@ public class groovy
 		}
 	}
 
+	/**
+	 * A class extending {@link ca.uqac.lif.cep.util.Sets} to provide direct
+	 * access to its static fields and methods.
+	 */
+	public static class Multiset extends ca.uqac.lif.cep.util.Multiset
+	{
+		public static final Function getCardinalities = ca.uqac.lif.cep.util.Multiset.getCardinalities;
 
+		public static final Function insert = ca.uqac.lif.cep.util.Multiset.Insert.instance;
+
+		private Multiset()
+		{
+			super();
+		}
+
+		public static Processor PutInto()
+		{
+			return new ca.uqac.lif.cep.util.Multiset.PutInto();
+		}
+	}
 
 	public static Function Element(int index)
 	{
@@ -610,6 +743,11 @@ public class groovy
 		return new FunctionTree(new Bags.ToList(arity), liftFunction(x));
 	}
 
+	public static Function MapUnion(BinaryFunction<?,?,?> f)
+	{
+		return new Maps.MapUnion(f);
+	}
+
 	public static Function LessThan(Object x, Object y)
 	{
 		return new FunctionTree(Numbers.isLessThan, liftFunction(x), liftFunction(y));
@@ -624,7 +762,7 @@ public class groovy
 	{
 		return new FunctionTree(Numbers.subtraction, liftFunction(x), liftFunction(y));
 	}
-	
+
 	public static Function Plus(Object x, Object y)
 	{
 		return new FunctionTree(Numbers.addition, liftFunction(x), liftFunction(y));
@@ -742,7 +880,7 @@ public class groovy
 	{
 		return ca.uqac.lif.cep.json.NumberValue.instance;
 	}
-	
+
 	/**
 	 * Produces an instance of the {@link ca.uqac.lif.cep.json.NumberValue}
 	 * function with an argument.
@@ -762,7 +900,7 @@ public class groovy
 	{
 		return ca.uqac.lif.cep.json.StringValue.instance;
 	}
-	
+
 	/**
 	 * Produces an instance of the {@link ca.uqac.lif.cep.json.NumberValue}
 	 * function with an argument.
@@ -914,6 +1052,36 @@ public class groovy
 	}
 
 	/**
+	 * Creates a new instance of the {@link StartAfterConnect} processor
+	 * that writes to standard output using {@link PullPrintln}.
+	 * @return The processor
+	 */
+	public static StartAfterConnect Write()
+	{
+		return new StartAfterConnect(new PullWrite(System.out));
+	}
+
+	/**
+	 * Creates a new instance of the {@link StartAfterConnect} processor
+	 * that writes to a byte buffer {@link PullWrite}.
+	 * @return The processor
+	 */
+	public static StartAfterConnect Collect()
+	{
+		return new StartAfterConnect(new PullWriteBuffer());
+	}
+
+	/**
+	 * Creates a new instance of the {@link StartAfterConnect} processor
+	 * that writes to standard output using {@link PullWrite}.
+	 * @return The processor
+	 */
+	public static StartAfterConnect WriteBinary()
+	{
+		return new StartAfterConnect(new PullWrite(System.out));
+	}
+
+	/**
 	 * Lifts an arbitrary object into a BeepBeep {@link Function}. 
 	 * @param o The object
 	 * @return The function
@@ -926,7 +1094,7 @@ public class groovy
 		}
 		return new Constant(o);
 	}
-	
+
 	/**
 	 * Lifts an arbitrary object into a BeepBeep {@link Processor}. 
 	 * @param o The object
@@ -940,6 +1108,213 @@ public class groovy
 		}
 		return new ca.uqac.lif.cep.functions.ApplyFunction(liftFunction(o));	
 	}
+
+	/**
+	 * A pump whose {@link #start()} method does not create a new thread.
+	 */
+	protected static final class SingleThreadPump extends Pump
+	{
+		@Override
+		public void start()
+		{
+			run();
+		}
+
+		@Override
+		public SingleThreadPump duplicate(boolean with_state)
+		{
+			return new SingleThreadPump();
+		}
+	}
+
+	/**
+	 * A {@link WriteOutputStream} processor that includes its own pump. Calling
+	 * {@link Processor#run() run()} on this processor therefore automatically
+	 * starts pulling events from upstream, until the end of the stream is
+	 * reached. As such, this processor does not bring any additional
+	 * functionality compared to chaining a {@link Pump} and a {@link WriteOutputStream},
+	 * except that it spares the user writing a Groovy script of a few keystrokes.
+	 * @author Sylvain Hallé
+	 */
+	protected static class PullWrite extends GroupProcessor
+	{
+		/**
+		 * The internal pump.
+		 */
+		private final Pump m_pump;
+
+		/**
+		 * The output stream where data is written.
+		 */
+		protected final OutputStream m_os;
+
+		/**
+		 * Creates a new instance of the processor.
+		 * @param os The output stream where data is written
+		 */
+		public PullWrite(OutputStream os)
+		{
+			super(1, 0);
+			m_os = os;
+			m_pump = new SingleThreadPump();
+			WriteOutputStream pr = new WriteOutputStream(os);
+			Connector.connect(m_pump, pr);
+			associateInput(m_pump);
+			addProcessors(m_pump, pr);
+		}
+
+		@Override
+		public void start()
+		{
+			super.start();
+			m_pump.run();
+		}
+	}
+	
+	protected static class PullWriteSuffix extends GroupProcessor
+	{
+		/**
+		 * The internal pump.
+		 */
+		private final Pump m_pump;
+
+		/**
+		 * The output stream where data is written.
+		 */
+		protected final OutputStream m_os;
+		
+		/**
+		 * The processor writing to the output stream.
+		 */
+		protected final WriteOutputStreamSuffix m_wos;
+
+		/**
+		 * Creates a new instance of the processor.
+		 * @param os The output stream where data is written
+		 */
+		public PullWriteSuffix(OutputStream os, byte[] prefix, byte[] suffix)
+		{
+			super(1, 0);
+			m_os = os;
+			m_pump = new SingleThreadPump();
+			m_wos = new WriteOutputStreamSuffix(os, prefix, suffix);
+			Connector.connect(m_pump, m_wos);
+			associateInput(m_pump);
+			addProcessors(m_pump, m_wos);
+		}
+
+		@Override
+		public void start()
+		{
+			m_wos.start();
+			m_pump.run();
+		}
+	}
+
+	protected static class WriteOutputStreamSuffix extends WriteOutputStream
+	{
+		protected final byte[] m_prefix;
+
+		protected final byte[] m_suffix;
+
+		public WriteOutputStreamSuffix(OutputStream os, byte[] prefix, byte[] suffix)
+		{
+			super(os);
+			m_prefix = prefix;
+			m_suffix = suffix;
+		}
+
+		@Override
+		public void start()
+		{
+			super.start();
+			try
+			{
+				m_outputStream.write(m_prefix);
+			}
+			catch (IOException e)
+			{
+				throw new ProcessorException(e);
+			}
+		}
+
+		@Override
+		public boolean onEndOfTrace(Queue<Object[]> outputs)
+		{
+			super.onEndOfTrace(outputs);
+			try
+			{
+				m_outputStream.write(m_suffix);
+				m_outputStream.flush();
+			}
+			catch (IOException e)
+			{
+				throw new ProcessorException(e);
+			}
+			return false;
+		}
+	}
+
+	/**
+	 * A {@link WriteOutputStream} processor that includes its own pump. Calling
+	 * {@link Processor#run() run()} on this processor therefore automatically
+	 * starts pulling events from upstream, until the end of the stream is
+	 * reached. As such, this processor does not bring any additional
+	 * functionality compared to chaining a {@link Pump} and a {@link WriteOutputStream},
+	 * except that it spares the user writing a Groovy script of a few keystrokes.
+	 * @author Sylvain Hallé
+	 */
+	protected static class PullWriteBuffer extends PullWrite
+	{
+
+		/**
+		 * Creates a new instance of the processor.
+		 */
+		public PullWriteBuffer()
+		{
+			super(new ByteArrayOutputStream());
+		}
+
+		@Override
+		public String toString()
+		{
+			return m_os.toString();
+		}
+	}
+
+	/**
+	 * A {@link Println} processor that includes its own pump. Calling
+	 * {@link Processor#run() run()} on this processor therefore automatically
+	 * starts pulling events from upstream, until the end of the stream is
+	 * reached. As such, this processor does not bring any additional
+	 * functionality compared to chaining a {@link Pump} and a {@link Println},
+	 * except that it spares the user writing a Groovy script of a few keystrokes.
+	 * @author Sylvain Hallé
+	 */
+	protected static class PullPrintln extends GroupProcessor
+	{
+		/**
+		 * The internal pump.
+		 */
+		private final ca.uqac.lif.cep.tmf.Pump m_pump;
+
+		/**
+		 * Creates a new instance of the processor.
+		 */
+		public PullPrintln(PrintStream ps)
+		{
+			super(1, 0);
+			m_pump = new ca.uqac.lif.cep.tmf.Pump();
+			ca.uqac.lif.cep.io.Print.Println pr = new ca.uqac.lif.cep.io.Print.Println(ps);
+			Connector.connect(m_pump, pr);
+			associateInput(m_pump);
+		}
+
+		@Override
+		public void start()
+		{
+			m_pump.run();
+		}
+	}
 }
 
-	
