@@ -912,6 +912,11 @@ public class groovy
 	}
 
 	/* ca.uqac.lif.cep.mtnp */
+	
+	public static ca.uqac.lif.mtnp.plot.gnuplot.ClusteredHistogram Histogram()
+	{
+		return new ca.uqac.lif.mtnp.plot.gnuplot.ClusteredHistogram();
+	}
 
 	/**
 	 * Creates an new instance of the {@link ca.uqac.lif.cep.mtnp.DrawPlot}
