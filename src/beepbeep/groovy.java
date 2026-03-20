@@ -377,10 +377,25 @@ public class groovy
 	{
 		return new ca.uqac.lif.cep.tmf.CountDecimate(interval);
 	}
-
+	
+	/**
+	 * Creates an new instance of the {@link ca.uqac.lif.cep.tmf.FilterOn}
+	 * processor.
+	 * @return The processor
+	 */
 	public static ca.uqac.lif.cep.tmf.FilterOn FilterOn(Object f)
 	{
 		return new ca.uqac.lif.cep.tmf.FilterOn(liftFunction(f));
+	}
+	
+	/**
+	 * Creates an new instance of the {@link ca.uqac.lif.cep.tmf.Freeze}
+	 * processor.
+	 * @return The processor
+	 */
+	public static ca.uqac.lif.cep.tmf.Freeze Freeze()
+	{
+		return new ca.uqac.lif.cep.tmf.Freeze();
 	}
 
 	/**
@@ -856,6 +871,66 @@ public class groovy
 	public static ca.uqac.lif.cep.util.Strings.Substring Substring(int start, int end)
 	{
 		return new ca.uqac.lif.cep.util.Strings.Substring(start, end);
+	}
+	
+	/* ca.uqac.lif.cep.fsm */
+	
+	protected static interface TransitionOrSymbolDef { }
+	
+	protected static class TransitionDef implements TransitionOrSymbolDef
+	{
+		public final ca.uqac.lif.cep.fsm.MooreMachine.Transition t;
+		
+		public final int source;
+		
+		public TransitionDef(int source, ca.uqac.lif.cep.fsm.MooreMachine.Transition t)
+		{
+			this.t = t;
+			this.source = source;
+		}
+	}
+	
+	protected static class SymbolDef implements TransitionOrSymbolDef
+	{
+		public final int state;
+		
+		public final Object symbol;
+		
+		public SymbolDef(int state, Object symbol)
+		{
+			this.state = state;
+			this.symbol = symbol;
+		}
+	}
+	
+	public static ca.uqac.lif.cep.fsm.MooreMachine MooreMachine(TransitionOrSymbolDef ... defs)
+	{
+		ca.uqac.lif.cep.fsm.MooreMachine m = new ca.uqac.lif.cep.fsm.MooreMachine(1, 1);
+		for (TransitionOrSymbolDef d : defs)
+		{
+			if (d instanceof SymbolDef)
+			{
+				SymbolDef sd = (SymbolDef) d;
+				m.addSymbol(sd.state, liftFunction(sd.symbol));
+			}
+			if (d instanceof TransitionDef)
+			{
+				TransitionDef td = (TransitionDef) d;
+				m.addTransition(td.source, td.t);
+			}
+		}
+		return m;
+	}
+	
+	public static TransitionDef trans(int from, Object cond, int to)
+	{
+		ca.uqac.lif.cep.fsm.MooreMachine.Transition t = new ca.uqac.lif.cep.fsm.FunctionTransition(liftFunction(cond), to);
+		return new TransitionDef(from, t);
+	}
+	
+	public static SymbolDef symbol(int state, Object symbol)
+	{
+		return new SymbolDef(state, symbol);
 	}
 
 	/* ca.uqac.lif.cep.json */
